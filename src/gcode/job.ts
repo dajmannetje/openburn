@@ -653,6 +653,9 @@ function emitGcode(
   const zFeed = Math.max(1, Math.round(device.zFeedRate || 300));
   const pauseSeconds = (ms: number) => fmt(ms / 1000);
 
+  // Where the head is after the last emitted line (machine coordinates).
+  let pos: Pt | null = null;
+
   for (const seg of segments) {
     if (seg.points.length === 0) continue;
     if (seg.kind === 'rapid') {
@@ -663,7 +666,25 @@ function emitGcode(
       }
       const p = mapPoint(seg.points[0]);
       lines.push(`G0 X${fmt(p.x)} Y${fmt(p.y)}`);
+      pos = p;
       continue;
+    }
+
+    // A cut always starts at its own first point. If the head is somewhere else
+    // (e.g. the optimiser rotated a closed path's start point on a later pass but
+    // left that pass's rapid pointing at the old start), travel there with the
+    // laser off — otherwise the first G1 would burn a stray line to point 1.
+    {
+      const start = mapPoint(seg.points[0]);
+      if (!pos || Math.hypot(start.x - pos.x, start.y - pos.y) > 1e-4) {
+        if (laserOn) {
+          lines.push('M5');
+          laserOn = false;
+          lastPower = -1;
+        }
+        lines.push(`G0 X${fmt(start.x)} Y${fmt(start.y)}`);
+      }
+      pos = mapPoint(seg.points[seg.points.length - 1]);
     }
 
     const feed = Math.max(1, Math.round(seg.feed ?? 600));
