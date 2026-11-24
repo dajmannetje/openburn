@@ -399,7 +399,7 @@ function LaserPanel() {
   const ws = useWorkspace();
   const m = useMachine();
   const device = state.device;
-  const [port, setPort] = useState('auto');
+  const [port, setPort] = useState(window.openburn?.profile === 'g2' ? 'g2bridge' : 'auto');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cutSelected, setCutSelected] = useState(false);
@@ -415,6 +415,8 @@ function LaserPanel() {
     try {
       if (port === 'mock') {
         await machine.connectMock();
+      } else if (port === 'g2bridge') {
+        await machine.connectBridge();
       } else if (port === 'auto') {
         await machine.connectSerial(device.baudRate, undefined, device.firmware);
       } else {
@@ -440,11 +442,24 @@ function LaserPanel() {
     ws.setStatus(`Job started — ${formatDuration(plan.timeSeconds)} estimated`);
   };
 
-  const frame = () => {
-    const plan = ws?.generateFrameJob();
+  const frame = async () => {
+    if (!ws) return;
+    // G2 bridge: trace the real shapes with the red light (all power set to S0) instead
+    // of only the bounding box. Raster/image jobs keep the bounding-box frame.
+    if (m.transportName?.startsWith('G2 bridge')) {
+      const job = await ws.generateJob(cutSelected);
+      const raster = job.segments.some((sg) => sg.powers && sg.powers.length > 0);
+      if (job.segments.length > 0 && !raster) {
+        const gcode = job.gcode.map((l) => l.replace(/^(M[34]) S[\d.]+/, '$1 S0').replace(/ S[\d.]+$/, ''));
+        machine.startPlan({ ...job, gcode }, 'frame');
+        ws.setStatus('Framing shapes (red light)');
+        return;
+      }
+    }
+    const plan = ws.generateFrameJob();
     if (plan) {
       machine.startPlan(plan, 'frame');
-      ws?.setStatus('Framing selection');
+      ws.setStatus('Framing selection');
     }
   };
 
@@ -465,6 +480,7 @@ function LaserPanel() {
               <select className="input" value={port} onChange={(e) => setPort(e.target.value)}>
                 <option value="auto">Ask on connect…</option>
                 <option value="mock">Simulator (demo)</option>
+                <option value="g2bridge">Gweike G2 bridge (localhost)</option>
                 {m.ports.map((p) => (
                   <option key={p.index} value={p.index}>
                     {p.label}

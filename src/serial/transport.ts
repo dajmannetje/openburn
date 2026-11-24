@@ -114,6 +114,56 @@ export class WebSerialTransport implements Transport {
 }
 
 /**
+ * WebSocket transport to a local GRBL bridge (e.g. g2bridge for the Gweike G2 galvo laser,
+ * ws://127.0.0.1:8767). The bridge speaks GRBL text exactly like a serial controller.
+ */
+export class WebSocketTransport implements Transport {
+  readonly isMock = false;
+  readonly name: string;
+  private ws: WebSocket | null = null;
+  private dataHandlers = new Set<(chunk: string) => void>();
+  private closeHandlers = new Set<() => void>();
+
+  constructor(private url: string, name = 'G2 bridge') {
+    this.name = `${name} (${url})`;
+  }
+
+  connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(this.url);
+      this.ws = ws;
+      ws.onopen = () => resolve();
+      ws.onerror = () => reject(new Error(`Cannot reach ${this.url} — is g2bridge running?`));
+      ws.onmessage = (e) => {
+        const text = typeof e.data === 'string' ? e.data : '';
+        if (text) this.dataHandlers.forEach((h) => h(text));
+      };
+      ws.onclose = () => this.closeHandlers.forEach((h) => h());
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    this.ws?.close();
+    this.ws = null;
+  }
+
+  async write(data: string): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error('Bridge is not connected');
+    this.ws.send(data);
+  }
+
+  onData(handler: (chunk: string) => void): () => void {
+    this.dataHandlers.add(handler);
+    return () => this.dataHandlers.delete(handler);
+  }
+
+  onClose(handler: () => void): () => void {
+    this.closeHandlers.add(handler);
+    return () => this.closeHandlers.delete(handler);
+  }
+}
+
+/**
  * GRBL simulator used when no hardware (or Web Serial) is available. It speaks
  * enough of the protocol to exercise the connection, jog, framing and job
  * streaming UI. Motion is timed (scaled down) so pause/resume behaves like a

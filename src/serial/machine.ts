@@ -10,7 +10,7 @@ import {
   type Dialect,
   type FirmwareSetting,
 } from './dialect';
-import { MockTransport, WebSerialTransport, type Transport } from './transport';
+import { MockTransport, WebSerialTransport, WebSocketTransport, type Transport } from './transport';
 import { portChooser } from './portChooser';
 
 export type MachineStatus =
@@ -270,6 +270,12 @@ class Machine {
     const choice = portChooser.takeLastChoice();
     if (choice) this.portNames.set(port, choice.name);
     return port;
+  }
+
+  /** Connect to a local GRBL bridge over WebSocket (Gweike G2: g2bridge). */
+  async connectBridge(url = 'ws://127.0.0.1:8767'): Promise<void> {
+    this.firmware = 'grbl';
+    await this.attach(new WebSocketTransport(url));
   }
 
   async connectMock(): Promise<void> {
