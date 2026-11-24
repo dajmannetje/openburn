@@ -30,7 +30,11 @@ function dedupe(points: Pt[]): Pt[] {
   return out;
 }
 
-function flattenItem(item: paper.PathItem, tolerance = 0.15): Contour[] {
+/**
+ * Curve flattening tolerance in mm (max distance between curve and polyline). 0.01 mm keeps
+ * small circles round on a galvo laser (G2: ~0.002 mm per step); straight lines are unaffected.
+ */
+function flattenItem(item: paper.PathItem, tolerance = 0.01): Contour[] {
   const paths: paper.Path[] = [];
   if (item instanceof paper.Path) {
     paths.push(item);
@@ -252,7 +256,7 @@ export function offsetContours(
     if (!next) break;
     const item = new paper.CompoundPath(next);
     item.fillColor = new paper.Color('black');
-    const contours = flattenItem(item, 0.3);
+    const contours = flattenItem(item, 0.02);
     item.remove();
     if (contours.length === 0) break;
     let maxSpan = 0;
