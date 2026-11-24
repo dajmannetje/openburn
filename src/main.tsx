@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { installAutomation } from './automation/handler';
+import { applyProfile } from './automation/profile';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -52,3 +54,6 @@ if (import.meta.env.DEV) {
     });
   }
 }
+
+installAutomation();
+applyProfile();

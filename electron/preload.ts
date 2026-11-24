@@ -145,6 +145,18 @@ const api = {
     choosePort: (requestId: number, portId: string | null): void =>
       ipcRenderer.send('serial:port-chosen', requestId, portId),
   },
+  /** Local automation (openburn-mcp): requests forwarded by the main process. */
+  automation: {
+    onRequest: (handler: (id: number, method: string, params: unknown) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, id: number, method: string, params: unknown) =>
+        handler(id, method, params);
+      ipcRenderer.on('automation:request', listener);
+      return () => ipcRenderer.removeListener('automation:request', listener);
+    },
+    respond: (id: number, payload: unknown): void => ipcRenderer.send('automation:response', id, payload),
+  },
+  /** Machine profile from the launcher (e.g. 'g2' for the Gweike G2 bridge). */
+  profile: process.env.OPENBURN_PROFILE ?? '',
   platform: process.platform,
   isElectron: true,
 };

@@ -115,6 +115,11 @@ declare global {
     recent: OpenBurnRecentApi;
     updater?: OpenBurnUpdaterApi;
     serial?: OpenBurnSerialApi;
+    automation?: {
+      onRequest(handler: (id: number, method: string, params: unknown) => void): () => void;
+      respond(id: number, payload: unknown): void;
+    };
+    profile?: string;
     platform: string;
     isElectron: boolean;
   }

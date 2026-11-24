@@ -38,6 +38,7 @@ import {
   type PathKind,
 } from './pathAllowList';
 import { registerRecentHandlers } from './recentFiles';
+import { startAutomationServer } from './automation';
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -406,6 +407,7 @@ prepareStartupFonts()
       registerAutosaveHandlers();
       registerRecentHandlers();
       createWindow();
+      startAutomationServer(() => mainWindow, app.getPath('userData'));
       scheduleUpdateCheck();
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
